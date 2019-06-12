@@ -1,0 +1,12 @@
+CREATE TABLE users(
+   user_id serial PRIMARY KEY,
+   username VARCHAR (50) UNIQUE NOT NULL,
+   password VARCHAR (50) NOT NULL,
+   email VARCHAR (355) UNIQUE NOT NULL,
+   created_on TIMESTAMP NOT NULL,
+   last_login TIMESTAMP
+);
+
+INSERT INTO users (username, password, email, created_on)
+VALUES ('sergey', '12345', 'haha@mail.ru', 'January 8, 1999');
+SELECT * FROM users
