@@ -50,13 +50,16 @@ app
    .set('views', path.join(__dirname, 'views'))
    .set('view engine', 'ejs')
    .get('/', (req, res) => res.render('pages/index'))
-   .get('/db', async (req, res, next) => {      
-      const results = executeBD('SELECT * FROM users')      
-      if(results.error != null){
-         res.send(results.error);
-         return;
+   .get('/db', async (req, res, next) => {    
+      try {
+         const client = await pool.connect()
+         const result = await client.query('SELECT * FROM users');
+         var data = { 'results': (result) ? result.rows : null};
+         res.render('pages/db', data);
+         client.release();
+      } catch (err) {  
+         res.send(err);
       }
-      res.render('pages/db', results.data);
    })
    .post('/signup', async (req, res) => {
       
