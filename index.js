@@ -76,7 +76,7 @@ app
       
       // поиск пользователя
       var newUser = false;      
-      const results = executeBD(`SELECT * FROM users WHERE email = ${data.email}`)
+      const results = executeBD(`SELECT * FROM users WHERE email = '${data.email}'`)
       if(results.error != null)
       {
          res.send(results.error);
@@ -89,8 +89,12 @@ app
       if(newUser){
          // TODO: вывести в лог ошибку
          var mysqlTimestamp = moment(Date.now()).format('YYYY-MM-DD HH:mm:ss');
-         const results = executeBD(`INSERT INTO users (username, password, email, created_on)` +
-                  `VALUES (${data.username}, ${data.password}, ${data.email}, ${mysqlTimestamp});`)
+         
+         var request = `INSERT INTO users (username, password, email, created_on) ` +
+                  `VALUES ('${data.username}', '${data.password}', '${data.email}', '${mysqlTimestamp}');`;
+         console.log(request);
+         
+         const results = executeBD(request)
          if(results.error != null)
          {
             res.send(results.error);
