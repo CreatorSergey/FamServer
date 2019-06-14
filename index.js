@@ -37,10 +37,10 @@ async function executeBD(request)
       const result = await client.query(request);
       results.data = { 'results': (result) ? result.rows : null};
       client.release();
-   } catch (err) {      
+   } catch (err) {  
       results.error = "Error " + err;
-      return
    }
+   console.log(results);
    return results;
 }
 
@@ -50,17 +50,13 @@ app
    .set('views', path.join(__dirname, 'views'))
    .set('view engine', 'ejs')
    .get('/', (req, res) => res.render('pages/index'))
-   .get('/db', async (req, res, next) => {
-      try {
-         const client = await pool.connect()
-         const result = await client.query('SELECT * FROM users');
-         const results = { 'results': (result) ? result.rows : null};
-         res.render('pages/db', results );
-         client.release();
-      } catch (err) {
-         console.error(err);
-         res.send("Error " + err);
+   .get('/db', async (req, res, next) => {      
+      const results = executeBD('SELECT * FROM users')      
+      if(results.error != null){
+         res.send(results.error);
+         return;
       }
+      res.render('pages/db', results.data);
    })
    .post('/signup', async (req, res) => {
       
@@ -81,7 +77,6 @@ app
       // поиск пользователя
       var newUser = false;      
       const results = executeBD(`SELECT * FROM users WHERE email = ${data.email}`)
-      console.log(results);
       if(results.error != null)
       {
          res.send(results.error);
@@ -92,10 +87,16 @@ app
          newUser = true;
    
       if(newUser){
+         // TODO: вывести в лог ошибку
          var mysqlTimestamp = moment(Date.now()).format('YYYY-MM-DD HH:mm:ss');
-         executeBD(`INSERT INTO users (username, password, email, created_on)` +
+         const results = executeBD(`INSERT INTO users (username, password, email, created_on)` +
                   `VALUES (${data.username}, ${data.password}, ${data.email}, ${mysqlTimestamp});`)
-                  res.send("Done");
+         if(results.error != null)
+         {
+            res.send(results.error);
+            return;
+         }
+         res.send("Done");
       } else {
          res.send("Error: Email is already in use.");
          return
