@@ -86,7 +86,7 @@ app
             return;
          }   
          
-         if((results.data && results.data.length == 0) || results.data == null)
+         if((results.data && results.data.results.length == 0) || results.data == null)
             newUser = true;
       
          if(newUser){
