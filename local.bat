@@ -1,1 +1,2 @@
-heroku local web
+call heroku local web
+pause

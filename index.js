@@ -64,7 +64,6 @@ app
    .post('/signup', async (req, res) => {
       
       // валидация данных
-
       var data = req.body;
       console.log(req.body);
       try {
@@ -78,35 +77,41 @@ app
       }
       
       // поиск пользователя
-      var newUser = false;      
-      const results = executeBD(`SELECT * FROM users WHERE email = '${data.email}'`)
-      if(results.error != null)
-      {
-         res.send(results.error);
-         return;
-      }
-      
-      if((results.data && results.data.length == 0) || results.data == null)
-         newUser = true;
-   
-      if(newUser){
-         // TODO: вывести в лог ошибку
-         var mysqlTimestamp = moment(Date.now()).format('YYYY-MM-DD HH:mm:ss');
-         
-         var request = `INSERT INTO users (username, password, email, created_on) ` +
-                  `VALUES ('${data.username}', '${data.password}', '${data.email}', '${mysqlTimestamp}');`;
-         console.log(request);
-         
-         const results = executeBD(request)
+      var newUser = false;    
+      try {      
+         const results = await executeBD(`SELECT * FROM users WHERE email='${data.email}'`)
          if(results.error != null)
          {
             res.send(results.error);
             return;
+         }   
+         
+         if((results.data && results.data.length == 0) || results.data == null)
+            newUser = true;
+      
+         if(newUser){
+            // TODO: вывести в лог ошибку
+            var mysqlTimestamp = moment(Date.now()).format('YYYY-MM-DD HH:mm:ss');
+            
+            var request = `INSERT INTO users (username, password, email, created_on) ` +
+                     `VALUES ('${data.username}', '${data.password}', '${data.email}', '${mysqlTimestamp}');`;
+            console.log(request);
+            
+            const results = executeBD(request)
+            if(results.error != null)
+            {
+               res.send(results.error);
+               return;
+            }
+            res.send("Done");
          }
-         res.send("Done");
-      } else {
-         res.send("Error: Email is already in use.");
-         return
-      }
+         else {
+            res.send("Error: Email is already in use.");
+            return
+         }
+               
+      } catch (err) {  
+         res.send(err);
+      }      
    })
    .listen(PORT, () => console.log(`Listening on ${ PORT }`))
