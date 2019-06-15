@@ -8,3 +8,6 @@
 
 Инструкция по началу работы
     https://devcenter.heroku.com/articles/getting-started-with-nodejs
+
+TODO:
+пуш уведомления
