@@ -3,13 +3,15 @@ const path = require('path')
 const joi = require('joi') // контроллер вводимых данных
 const moment = require('moment') 
 const bodyParser = require("body-parser");
+const crypto = require('crypto'); 
+
 const { Pool } = require('pg');
 let app = express();
 
 /**
  * Схема валидации
  */
-const userSchema = joi.object().keys({
+const signUpShema = joi.object().keys({
   email: joi.string().email().required(),
   username: joi.string().required(),
   password: joi.string().regex(/^[a-zA-Z0-9]{6,30}$/).required()
@@ -22,6 +24,34 @@ const pool = new Pool({
   connectionString: BASE,
   ssl: process.env.DATABASE_URL ? true : false
 });
+
+/**
+ * Получить время
+ */
+function getTime()
+{
+   return moment(Date.now()).format('YYYY-MM-DD HH:mm:ss');  
+}
+
+/**
+ * Создать соль
+ */
+function makeSalt()
+{
+   return crypto.randomBytes(16).toString('hex');    
+}
+
+/**
+ * Получить хэш из пароля
+ * @param {String} password - пароль
+ * @param {String} salt - соль
+ */
+function makeHash(password, salt) 
+{      
+   // hashing user's salt and password with 1000 iterations, 
+   // 64 length and sha512 digest 
+   return crypto.pbkdf2Sync(password, salt, 1000, 64, `sha512`).toString(`hex`); 
+};
 
 /**
  * Отправить ошибку
@@ -57,14 +87,18 @@ async function executeBD(res, request, onResolve)
       const result = await client.query(request);
       let data = { 'results': (result) ? result.rows : null};
 
-      onResolve(res, data);      
-      console.log(data);
+      if(onResolve)
+         onResolve(res, data);   
 
+      console.log(data);
       client.release();
-   } catch (err) 
+   } 
+   catch (err) 
    {  
       console.log(err);
-      res.send(err);
+      
+      if(res)
+         res.send(err);
    }
 }
 
@@ -80,7 +114,7 @@ async function signUp(req, res, next)
    var reqBody = req.body;
    console.log(reqBody);
 
-   const result = joi.validate(reqBody, userSchema)
+   const result = joi.validate(reqBody, signUpShema)
    if(result.error) 
       sendError(res, "Data entered is not valid. Please try again.")
    else
@@ -90,19 +124,19 @@ async function signUp(req, res, next)
       {
          if(data.results.length == 0 || data == null)
          {
-            var time = moment(Date.now()).format('YYYY-MM-DD HH:mm:ss');            
+            var time = getTime();  
+            var salt = makeSalt();
+            var hash = makeHash(reqBody.password, salt);       
             await executeBD(res, `
-               INSERT INTO users (username, password, email, created_on)
-               VALUES ('${reqBody.username}', '${reqBody.password}', '${reqBody.email}', '${time}');
+               INSERT INTO users (username, hash, email, created_on, salt)
+               VALUES ('${reqBody.username}', '${hash}', '${reqBody.email}', '${time}', '${salt}');
                `, function(res, data)
                {
                   sendMessage(res, "Done")
                });
          }
          else 
-         {
             sendError(res, "Email is already in use.")
-         }      
       });
    }  
 }
@@ -140,19 +174,46 @@ async function mainPage(req, res, next)
  */
 async function makeDB(req, res, next)
 {
+   await makeDBInner(res, function(res, data)
+   {
+      sendMessage(res, "Done")
+   })
+}
+
+/**
+ * Проверить бд
+ * @param {Object} res - объект ответ
+ * @param {*} callback - функция обработчик успеха
+ */
+async function makeDBInner(res, callback)
+{
    await executeBD(res, `
-    CREATE TABLE users(
+    CREATE TABLE IF NOT EXISTS users(
          user_id serial PRIMARY KEY,
          username VARCHAR (50) UNIQUE NOT NULL,
-         password VARCHAR (50) NOT NULL,
+         hash VARCHAR (255) NOT NULL,
          email VARCHAR (355) UNIQUE NOT NULL,
          created_on TIMESTAMP NOT NULL,
-         last_login TIMESTAMP
+         last_login TIMESTAMP,
+         salt VARCHAR (255) NOT NULL
       );
+   `, callback)
+}
+
+/**
+ * Очистить базу данных
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function cleanBD(req, res, next)
+{
+   await executeBD(res, `
+      DROP TABLE IF EXISTS users;
    `, 
    function(res, data)
    {
-      res.sendMessage(res, "Done")
+      sendMessage(res, "Done")
    })
 }
 
@@ -164,8 +225,40 @@ async function makeDB(req, res, next)
  */
 async function signIn(req, res, next)
 {
+   // валидация данных
+   var reqBody = req.body;
+   console.log(reqBody);
 
+   // поиск пользователя   
+   await executeBD(res, `SELECT * FROM users WHERE email='${reqBody.email}'`, async function(res, data)
+   {
+      if(data.results.length)
+      {
+         var user = data.results[0];
+         var hash = makeHash(reqBody.password, user.salt);
+         if(hash == user.hash)
+         {
+            var time = getTime();
+            await executeBD(res, `
+               UPDATE users
+               SET last_login = '${time}'
+               WHERE email = '${reqBody.email}';
+            `, function(res, data)
+            {
+               sendMessage(res, "Done")
+               // TODO: выдача токена
+            })    
+         }
+         else
+            sendError(res, "Password incorrect")
+      }
+      else 
+         sendError(res, "User not found")
+   });
 }
+
+// Перед запуском проверим базу
+makeDBInner();
 
 app
    // Настройка приложения
@@ -179,8 +272,9 @@ app
    .get('/', mainPage)
    .get('/users', users)
    .get('/makebd', makeDB)
+   .get('/cleanbd', cleanBD)
    .post('/signup', signUp)
-   .post('/singin', signIn)
+   .post('/signin', signIn)
 
    // Запуск
    .listen(PORT, () => console.log(`Listening on ${ PORT } with db ${ BASE }`))

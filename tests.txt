@@ -1,3 +1,9 @@
-curl --header "Content-Type: application/json" -d "@testuser.json" -X POST http://127.0.0.1:5000/signup
-curl --header "Content-Type: application/json" -d "@testuser.json" -X POST https://peaceful-oasis-35420.herokuapp.com/signup
-curl -X GET http://127.0.0.1:5000/db
+// внешние
+curl --header "Content-Type: application/json" -d "@test_signup_body.json" -X POST https://peaceful-oasis-35420.herokuapp.com/signup
+
+// локальные
+curl --header "Content-Type: application/json" -d "@test_signup_body.json" -X POST http://127.0.0.1:5000/signup
+curl -X GET http://127.0.0.1:5000/users
+curl -X GET http://127.0.0.1:5000/makebd
+curl -X GET http://127.0.0.1:5000/cleanbd
+curl --header "Content-Type: application/json" -d "@test_sigin_body.json" -X POST http://127.0.0.1:5000/signin
