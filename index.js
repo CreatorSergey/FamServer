@@ -433,17 +433,24 @@ async function signInInner(req, res, next, restAPI)
             {
                // выдача токена
                const payload = {
-                  check:  true      
+                  check:  true,
+                  userID: user.id     
                 };
       
                let token = jwt.sign(payload, SECRET, {
                   expiresIn: 1440 // expires in 24 hours  
-               });
+               });          
 
-               res.send({
-                  message: 'authentication done ',
-                  token: token
-                });
+               if(restAPI)
+                  res.send({
+                     message: 'authentication done ',
+                     token: token
+                  });
+               else
+               {
+                  res.cookie('access-token', token)
+                  res.redirect('/site/dashboard')
+               }
             })    
          }
          else
@@ -481,6 +488,34 @@ async function signInSite(req, res, next)
    await signInInner(req, res, next, false)
 }
 
+/**
+ * страница пользователя (версия для сайта)
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function siteDashBoard(req, res, next)
+{
+   if(res.locals.user) 
+   {
+      res.render('dashboard', {userEmail: res.locals.user.email})
+   }
+   else  // if there is no token 
+      await mainPage(req, res, next);
+}
+
+
+/**
+ * страница пользователя (версия для сайта)
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function siteLogout(req, res, next)
+{
+   res.cookie('access-token', "")
+   res.redirect('/site/signin')
+}
 
 // Перед запуском проверим базу
 makeDBInner();
@@ -490,8 +525,8 @@ const ProtectedRoutes = express.Router();
 /**
  * проверка токена
  */
-ProtectedRoutes.use((req, res, next) => {
-
+ProtectedRoutes.use((req, res, next) => 
+{
    // check header for the token
    var token = req.headers['access-token'];
 
@@ -530,9 +565,44 @@ app
    .use(passport.session())
 
    .use(flash())
-   .use((req, res, next) => {
+   .use(async (req, res, next) => {
       res.locals.success_mesages = req.flash('success')
       res.locals.error_messages = req.flash('error')
+      var token = req.cookies['access-token'];
+   
+      res.locals.isAuthenticated = false;
+      res.locals.token = token;
+      res.locals.user = undefined;
+   
+      // decode token
+      if(token) 
+      {
+         // verifies secret and checks if the token is expired
+         var error = false;
+         jwt.verify(token, SECRET, (err, decoded) =>{      
+            error = err;
+            req.decoded = decoded; 
+         });
+   
+         if(!error)
+         {
+            // if everything is good, save to request for use in other routes
+            var userID = req.decoded["userID"];
+   
+            console.log(userID);
+            // поиск пользователя   
+            await executeBD(res, `SELECT * FROM users WHERE id=${userID}`, async function(res, data)
+            {
+               if(data.results.length)
+               {    
+                  var user = data.results[0];
+                  res.locals.isAuthenticated = true;
+                  res.locals.user = user;
+               }
+            });
+         }
+      }
+
       next()
    })
 
@@ -567,6 +637,8 @@ app
    .post('/site/signup', signUpSite)
    .get('/site/signin', signInPage)
    .post('/site/signin', signInSite)
+   .get('/site/dashboard', siteDashBoard)
+   .get('/site/logout', siteLogout)
 
    // защищенные маршруты
    .use('/api', ProtectedRoutes)
