@@ -1,23 +1,43 @@
 const express = require('express')
 const path = require('path')
-const joi = require('joi') // контроллер вводимых данных
-const moment = require('moment') 
-const bodyParser = require("body-parser");
-const crypto = require('crypto'); 
-const jwt    = require('jsonwebtoken');
+const joi = require('joi')                      // контроллер вводимых данных
+const moment = require('moment')                // выдает вермя
+const bodyParser = require("body-parser");      // парсит json запросы
+const crypto = require('crypto');               // выполняет шифрование паролей
+const jwt    = require('jsonwebtoken');         // формирует токены
+const morgan = require('morgan')                // ведет журналы
+const { Pool } = require('pg');                 // база данных
+const cookieParser = require('cookie-parser');  // парсер кук
+const flash = require('connect-flash');
+const expressHandlebars = require('express-handlebars');
+const session = require('express-session');
+const passport = require('passport')
 
-const { Pool } = require('pg');
+// require('./config/passport')
+
 let app = express();
 
-const USER_TYPE_STREAMER = 0; // стример
-const USER_TYPE_FAN = 1;      // фанат
+/**
+ * Типы пользователей
+ */
+const USER_TYPE_FAN = 0;      // фанат
+const USER_TYPE_STREAMER = 1; // стример
 
+/**
+ * Типы сообщений
+ */
 const MESSAGE_TYPE_STRING = 0;   // текстовое сообщение
 const MESSAGE_TYPE_VIDEO = 1;    // видео сообщение
 
+/**
+ * Состояние сообщений
+ */
 const MESSAGE_STATE_NEW = 0;     // новое сообщение
 const MESSAGE_STATE_READED = 1;  // прочитанное сообщение
 
+/**
+ * Создание пользователей
+ */
 const USER_STATE_NEW = 0;        // новый пользователь
 const USER_STATE_APPROVED = 1;   // подтвержденный
 
@@ -118,20 +138,55 @@ async function executeBD(res, request, onResolve)
 }
 
 /**
- * Зарегистрироваться
+ * Зарегистрироваться (Rest API)
  * @param {Object} req - объект запрос
  * @param {Object} res - объект ответ
  * @param {Object} next - следующий обработчик маршрута
  */
 async function signUp(req, res, next)
 {
+   await signUpInner(req, res, next, true);
+}
+
+/**
+ * Зарегистрироваться (версия для сайта)
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function signUpSite(req, res, next)
+{
+   await signUpInner(req, res, next, false);
+}
+
+/**
+ * Зарегистрироваться
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function signUpInner(req, res, next, restAPI)
+{
    // валидация данных
    var reqBody = req.body;
    console.log(reqBody);
 
+   if(restAPI)
+      reqBody.type = reqBody.type || USER_TYPE_FAN;
+   else
+      reqBody.type = reqBody.type == "on" ? USER_TYPE_STREAMER : USER_TYPE_FAN;
+
    const result = joi.validate(reqBody, signUpShema)
-   if(result.error) 
-      sendError(res, "Data entered is not valid. Please try again.")
+   if(result.error)
+   {
+      if(restAPI)
+         sendError(res, "Data entered is not valid. Please try again.")
+      else
+      {
+         req.flash('error', 'Data entered is not valid. Please try again.')
+         res.redirect('/site/signup')
+      }
+   }     
    else
    {
       // поиск пользователя   
@@ -141,17 +196,31 @@ async function signUp(req, res, next)
          {
             var time = getTime();  
             var salt = makeSalt();
-            var hash = makeHash(reqBody.password, salt);       
+            var hash = makeHash(reqBody.password, salt);                  
             await executeBD(res, `
                INSERT INTO users (username, hash, email, created_on, salt, type, state)
                VALUES ('${reqBody.username}', '${hash}', '${reqBody.email}', '${time}', '${salt}', ${reqBody.type}, ${USER_STATE_NEW});
                `, function(res, data)
                {
-                  sendMessage(res, "Done")
+                  if(restAPI)
+                     sendMessage(res, "Done")
+                  else
+                  {
+                     req.flash('success', 'Registration successfully, go ahead and login.')
+                     res.redirect('/site/signin')
+                  }
                });
          }
-         else 
-            sendError(res, "Email is already in use.")
+         else
+         {
+            if(restAPI)
+               sendError(res, "Email is already in use.")
+            else
+            {
+               req.flash('error', 'Email is already in use.')
+               res.redirect('/site/signup')
+            }
+         }
       });
    }  
 }
@@ -178,7 +247,7 @@ async function users(req, res, next)
  */
 async function mainPage(req, res, next)
 {
-   res.render('pages/index')
+   res.render('index')
 }
 
 /**
@@ -302,12 +371,45 @@ async function messages(req, res, next)
 }
 
 /**
- * авторизация
+ * Страница регистрации
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function signUpPage(req, res, next)
+{
+   res.render('register')
+}
+
+/**
+ * Страница авторизации
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function signInPage(req, res, next)
+{
+   res.render('login')
+}
+
+/**
+ * авторизация (REST API)
  * @param {Object} req - объект запрос
  * @param {Object} res - объект ответ
  * @param {Object} next - следующий обработчик маршрута
  */
 async function signIn(req, res, next)
+{
+   await signInInner(req, res, next, true)
+}
+
+/**
+ * авторизация
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function signInInner(req, res, next, restAPI)
 {
    // валидация данных
    var reqBody = req.body;
@@ -345,12 +447,40 @@ async function signIn(req, res, next)
             })    
          }
          else
-            sendError(res, "Password incorrect")
+         {
+            if(restAPI)
+               sendError(res, "Password incorrect")
+            else
+            {
+               req.flash('error', "Password incorrect")
+               res.redirect('/site/signin')
+            }
+         }
       }
       else 
-         sendError(res, "User not found")
+      {
+         if(restAPI)
+            sendError(res, "User not found")
+         else
+         {
+            req.flash('error', "User not found")
+            res.redirect('/site/signin')
+         }
+      }
    });
 }
+
+/**
+ * авторизация (версия для сайта)
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function signInSite(req, res, next)
+{
+   await signInInner(req, res, next, false)
+}
+
 
 // Перед запуском проверим базу
 makeDBInner();
@@ -387,11 +517,39 @@ ProtectedRoutes.use((req, res, next) => {
 
 app
    // Настройка приложения
+   .use(morgan('dev'))
+   .use(cookieParser())
+
+   app.use(session({
+      cookie: { maxAge: 60000 },
+      secret: SECRET,
+      saveUninitialized: false,
+      resave: false
+   }))
+   .use(passport.initialize())
+   .use(passport.session())
+
+   .use(flash())
+   .use((req, res, next) => {
+      res.locals.success_mesages = req.flash('success')
+      res.locals.error_messages = req.flash('error')
+      next()
+   })
+
    .use(bodyParser.urlencoded({ extended: true }))
    .use(bodyParser.json())
+
    .use(express.static(path.join(__dirname, 'public')))
    .set('views', path.join(__dirname, 'views'))
-   .set('view engine', 'ejs')
+   .engine('handlebars', expressHandlebars({ defaultLayout: 'layout' }))
+   .set('view engine', 'handlebars')
+
+   // catch 404 and forward to error handler
+   /*
+   .use((req, res, next) => {
+      res.render('notFound')
+   })
+   */
 
    // маршруты для отладки
    .get('/', mainPage)
@@ -400,9 +558,15 @@ app
    .get('/makebd', makeDB)
    .get('/cleanbd', cleanBD)
 
-   // публичные маршруты
+   // REST API
    .post('/signup', signUp)
    .post('/signin', signIn)
+
+   // публичные сайт маршруты
+   .get('/site/signup', signUpPage)
+   .post('/site/signup', signUpSite)
+   .get('/site/signin', signInPage)
+   .post('/site/signin', signInSite)
 
    // защищенные маршруты
    .use('/api', ProtectedRoutes)
