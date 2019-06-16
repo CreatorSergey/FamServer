@@ -1,4 +1,41 @@
 <!-- Jumbotron -->
+<link rel='stylesheet' type='text/css' href='/style.css' />
 <div class="jumbotron">
-  <h1>User: {{ userEmail }} DashBoard</h1>
+  <h2>User: {{ userEmail }}, ID: {{ id }}</h2>
+
+  <br>
+
+  <h3>Your messages</h3>
+  <table>
+    <thead>
+    <tr>
+      {{#each arr.[0]}}
+        <th>{{@key}}</th>
+      {{/each}}
+    </tr>
+    </thead>
+    <tbody>
+      {{#each arr}}
+        <tr>
+          {{#each this}}
+            <td>{{this}}</td>
+          {{/each}}
+        </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <br>
+  <h3>Send Message to other users</h3>
+
+  <form class="messageForm" action="/site/sendMessage" method="POST">
+    <label for="input" class="sr-only">Message</label>
+    <input type="input" id="to" name="to" class="form-control" placeholder="User ID" required>
+
+    <label for="input" class="sr-only">Message</label>
+    <input type="input" id="message" name="message" class="form-control" placeholder="Message" required>
+
+    <button class="btn btn-lg btn-default btn-block" type="submit">Send Message</button>
+  </form>
+
 </div>

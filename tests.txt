@@ -8,7 +8,7 @@ curl -X GET http://127.0.0.1:5000/makebd
 curl -X GET http://127.0.0.1:5000/cleanbd
 curl --header "Content-Type: application/json" -d "@test_sigin_body.json" -X POST http://127.0.0.1:5000/signin
 curl --header "Content-Type: application/json" --header "access-token: 123" -d "@test_send_message_body.json" -X POST http://127.0.0.1:5000/api/sendMessage/
-curl --header "Content-Type: application/json" --header "access-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaGVjayI6dHJ1ZSwiaWF0IjoxNTYwNjI3ODQ2LCJleHAiOjE1NjA2MjkyODZ9.e8bLl3455APP9KOCUxnupZQ__c8KYxXJXieqo6Pd4wU" -d "@test_send_message_body.json" -X POST http://127.0.0.1:5000/api/sendMessage/
+curl --header "Content-Type: application/json" --header "access-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaGVjayI6dHJ1ZSwidXNlcklEIjoxMywiaWF0IjoxNTYwNjc5MDEwLCJleHAiOjE1NjA2ODA0NTB9.H0ffqIDHqIb1uh1GM1cfESepr3DHNPTqeom6w8ZwHUg" -d "@test_send_message_body.json" -X POST http://127.0.0.1:5000/api/sendMessage/
 curl --header "Content-Type: application/json" --header "access-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaGVjayI6dHJ1ZSwiaWF0IjoxNTYwNjI3ODQ2LCJleHAiOjE1NjA2MjkyODZ9.e8bLl3455APP9KOCUxnupZQ__c8KYxXJXieqo6Pd4wU" -d "@test_get_my_messsages_body.json" -X POST http://127.0.0.1:5000/api/getMessages/
 
 

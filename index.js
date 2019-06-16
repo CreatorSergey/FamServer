@@ -24,12 +24,6 @@ const USER_TYPE_FAN = 0;      // фанат
 const USER_TYPE_STREAMER = 1; // стример
 
 /**
- * Типы сообщений
- */
-const MESSAGE_TYPE_STRING = 0;   // текстовое сообщение
-const MESSAGE_TYPE_VIDEO = 1;    // видео сообщение
-
-/**
  * Состояние сообщений
  */
 const MESSAGE_STATE_NEW = 0;     // новое сообщение
@@ -288,7 +282,6 @@ async function makeDBInner(res, callback)
          id serial PRIMARY KEY,
          userTo INTEGER,
          userFrom INTEGER,
-         type INTEGER,
          message VARCHAR (255) NOT NULL,
          state INTEGER
       );
@@ -328,8 +321,8 @@ async function sendMessageTo(req, res, next)
       if(data.results.length)
       {    
          await executeBD(res, `
-            INSERT INTO messages (userTo, userFrom, type, message, state)
-            VALUES (${reqBody.to}, ${reqBody.from}, ${reqBody.type}, '${reqBody.message}', ${MESSAGE_STATE_NEW});
+            INSERT INTO messages (userTo, userFrom, message, state)
+            VALUES (${reqBody.to}, ${reqBody.from}, '${reqBody.message}', ${MESSAGE_STATE_NEW});
             `, function(res, data)
             {
                sendMessage(res, "Done")
@@ -338,6 +331,39 @@ async function sendMessageTo(req, res, next)
       else 
          sendError(res, "User not found.")
    });
+}
+
+
+/**
+ * Отправить сообщение
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function siteSendMessageTo(req, res, next)
+{
+   if(res.locals.user)
+   {
+      var reqBody = req.body;
+      console.log(reqBody);
+      // поиск пользователя   
+      await executeBD(res, `SELECT * FROM users WHERE id=${reqBody.to}`, async function(res, data)
+      {
+         if(data.results.length)
+         {    
+            await executeBD(res, `
+               INSERT INTO messages (userTo, userFrom, message, state)
+               VALUES (${reqBody.to}, ${res.locals.user.id}, '${reqBody.message}', ${MESSAGE_STATE_NEW});
+               `, function(res, data)
+               {
+                  req.flash('success', 'Message sent.')
+                  res.redirect('/site/dashboard')
+               });
+         }
+         else 
+            req.flash('error', "User not found.")
+      });
+   }
 }
 
 /**
@@ -498,12 +524,14 @@ async function siteDashBoard(req, res, next)
 {
    if(res.locals.user) 
    {
-      res.render('dashboard', {userEmail: res.locals.user.email})
+      await executeBD(res, `SELECT * FROM messages WHERE userTo=${res.locals.user.id}`, async function(res, data)
+      {
+         res.render('dashboard', {userEmail: res.locals.user.email, id: res.locals.user.id,  arr: data.results })
+      });      
    }
    else  // if there is no token 
       await mainPage(req, res, next);
 }
-
 
 /**
  * страница пользователя (версия для сайта)
@@ -606,6 +634,8 @@ app
       next()
    })
 
+
+
    .use(bodyParser.urlencoded({ extended: true }))
    .use(bodyParser.json())
 
@@ -639,6 +669,7 @@ app
    .post('/site/signin', signInSite)
    .get('/site/dashboard', siteDashBoard)
    .get('/site/logout', siteLogout)
+   .post('/site/sendMessage', siteSendMessageTo)
 
    // защищенные маршруты
    .use('/api', ProtectedRoutes)
