@@ -12,6 +12,7 @@ const flash = require('connect-flash');
 const expressHandlebars = require('express-handlebars');
 const session = require('express-session');
 const passport = require('passport')
+const google = require('./google');
 
 // require('./config/passport')
 
@@ -283,7 +284,8 @@ async function makeDBInner(res, callback)
          userTo INTEGER,
          userFrom INTEGER,
          message VARCHAR (255) NOT NULL,
-         state INTEGER
+         state INTEGER,
+         attach VARCHAR (2048)
       );
    `, callback)
 }
@@ -470,7 +472,8 @@ async function signInInner(req, res, next, restAPI)
                if(restAPI)
                   res.send({
                      message: 'authentication done ',
-                     token: token
+                     token: token,
+                     userid: user.id
                   });
                else
                {
