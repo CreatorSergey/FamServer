@@ -284,9 +284,16 @@ async function makeDBInner(res, callback)
          userTo INTEGER,
          userFrom INTEGER,
          message VARCHAR (255) NOT NULL,
+         send_on TIMESTAMP,
          state INTEGER,
          attach VARCHAR (2048)
       );
+
+      ALTER TABLE messages
+      ADD send_on TIMESTAMP;
+
+      ALTER TABLE messages
+      ADD attach VARCHAR (2048);
    `, callback)
 }
 
@@ -322,9 +329,10 @@ async function sendMessageTo(req, res, next)
    {
       if(data.results.length)
       {    
+         var time = getTime();
          await executeBD(res, `
-            INSERT INTO messages (userTo, userFrom, message, state)
-            VALUES (${reqBody.to}, ${reqBody.from}, '${reqBody.message}', ${MESSAGE_STATE_NEW});
+            INSERT INTO messages (userTo, userFrom, message, state, send_on, attach)
+            VALUES (${reqBody.to}, ${reqBody.from}, '${reqBody.message}', ${MESSAGE_STATE_NEW}, '${time}', '${reqBody.attach}') ;
             `, function(res, data)
             {
                sendMessage(res, "Done")
@@ -353,9 +361,10 @@ async function siteSendMessageTo(req, res, next)
       {
          if(data.results.length)
          {    
+            var time = getTime();
             await executeBD(res, `
-               INSERT INTO messages (userTo, userFrom, message, state)
-               VALUES (${reqBody.to}, ${res.locals.user.id}, '${reqBody.message}', ${MESSAGE_STATE_NEW});
+               INSERT INTO messages (userTo, userFrom, message, state, send_on, attach)
+               VALUES (${reqBody.to}, ${res.locals.user.id}, '${reqBody.message}', ${MESSAGE_STATE_NEW}, '${time}', '${reqBody.attach}');
                `, function(res, data)
                {
                   req.flash('success', 'Message sent.')
@@ -379,6 +388,38 @@ async function getMyMessages(req, res, next)
    var reqBody = req.body;
    console.log(reqBody);
    await executeBD(res, `SELECT * FROM messages WHERE userTo=${reqBody.self}`, async function(res, data)
+   {
+      res.send(data.results);
+   });
+}
+
+/**
+ * Получить мои диалоги
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function getMyDialogs(req, res, next)
+{
+   var reqBody = req.body;
+   console.log(reqBody);
+   await executeBD(res, `SELECT DISTINCT users.username, users.email, users.id, users.type FROM users, messages WHERE messages.userTo=${reqBody.self} AND users.id=messages.userFrom`, async function(res, data)
+   {
+      res.send(data.results);
+   });
+}
+
+/**
+ * Получить диалог (мои сообщения вот с этим пользователем)
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function getMyDialog(req, res, next)
+{
+   var reqBody = req.body;
+   console.log(reqBody);
+   await executeBD(res, `SELECT * FROM messages WHERE userTo=${reqBody.self} AND userFrom=${reqBody.from}`, async function(res, data)
    {
       res.send(data.results);
    });
@@ -537,6 +578,17 @@ async function siteDashBoard(req, res, next)
 }
 
 /**
+ * страница лога сервера
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function siteChangeLog(req, res, next)
+{
+   res.render('changeLog')
+}
+
+/**
  * страница пользователя (версия для сайта)
  * @param {Object} req - объект запрос
  * @param {Object} res - объект ответ
@@ -671,6 +723,7 @@ app
    .get('/site/signin', signInPage)
    .post('/site/signin', signInSite)
    .get('/site/dashboard', siteDashBoard)
+   .get('/site/changeLog', siteChangeLog)
    .get('/site/logout', siteLogout)
    .post('/site/sendMessage', siteSendMessageTo)
 
@@ -678,7 +731,8 @@ app
    .use('/api', ProtectedRoutes)
    .post('/api/sendMessage', sendMessageTo)
    .post('/api/getMessages', getMyMessages)
-
+   .post('/api/getDialogs', getMyDialogs)
+   .post('/api/getDialog', getMyDialog)
    // Запуск
    .listen(PORT, () => console.log(`Listening on ${ PORT } with db ${ BASE }`))
 

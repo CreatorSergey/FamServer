@@ -1,0 +1,68 @@
+<h3>Change log</h3>
+<h3>18.06.19</h3>
+<br>
+
+<h4>1 Получение диалогов</h4>
+<b>Request:</b>
+/api/getDialogs
+<br>
+<b>Body:</b>
+{<br>
+   "self":1<br>
+}<br>
+<br>
+<b>Anwer (Array):</b>
+{<br>
+  username,<br>
+  email,<br>
+  id,<br>
+  type<br>
+}<br>
+<br>
+<br>
+<h4>2 Отправка сообщений</h4>
+(появилось поле attach, содержимое аттача произвольно, там могут быть ссылки или ид-файлов из хранилищ, указываем через запятую)
+<br>
+<b>Request:</b>
+/api/sendMessage
+<br>
+<b>Body:</b>
+{<br>
+   "to":13,<br>
+   "from":1,<br>
+   "message": "привет",<br>
+   "attach": "https://www.w3schools.com/images/colorpicker.gif, 23232323123"<br>
+}<br>
+<br>
+<b>Anwer (Object):</b>
+{<br>
+  "msg": "Done"<br>
+}<br>
+<br>
+<br>
+<h4>3 Сообщение</h4>
+(появилось поле send_on, это время когда отправлено, хранится видимо строкой таймштампом)
+<br>
+<br>
+<h4>4 Получение диалога (сообщения this и пользователя, с которым this общается)</h4>
+<br>
+<b>Request:</b>
+/api/getDialog
+<br>
+<b>Body:</b>
+{<br>
+   "self":1,<br>
+   "from":2<br>
+}<br>
+<br>
+<b>Anwer (Array):</b>
+{<br>
+  "id":1,<br>
+  "userto":1,<br>
+  "userfrom":1,<br>
+  "type":0,<br>
+  "message":"привет",<br>
+  "state":0,<br>
+  "send_on":"2019-06-18T18:14:58.000Z",<br>
+  "attach":"https://www.w3schools.com/images/colorpicker.gif"<br>
+}<br>

@@ -25,6 +25,26 @@
     </tbody>
   </table>
 
+  <h3>Your Dialogs</h3>
+  <table>
+    <thead>
+    <tr>
+      {{#each arr.[0]}}
+        <th>{{@key}}</th>
+      {{/each}}
+    </tr>
+    </thead>
+    <tbody>
+      {{#each arr}}
+        <tr>
+          {{#each this}}
+            <td>{{this}}</td>
+          {{/each}}
+        </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
   <br>
   <h3>Send Message to other users</h3>
 
@@ -34,7 +54,7 @@
 
     <label for="input" class="sr-only">Message</label>
     <input type="input" id="message" name="message" class="form-control" placeholder="Message" required>
-
+    <input type="input" id="attach" name="attach" class="form-control" placeholder="Attach">
     <button class="btn btn-lg btn-default btn-block" type="submit">Send Message</button>
   </form>
 
