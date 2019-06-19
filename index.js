@@ -13,6 +13,7 @@ const expressHandlebars = require('express-handlebars');
 const session = require('express-session');
 const passport = require('passport')
 const google = require('./google');
+const websoketServer = require('./websoket');
 
 // require('./config/passport')
 
@@ -276,7 +277,9 @@ async function makeDBInner(res, callback)
          last_login TIMESTAMP,
          salt VARCHAR (255) NOT NULL,
          type INTEGER,
-         state INTEGER
+         state INTEGER,
+         rating INTEGER,
+         avatar VARCHAR (255)
       );
 
       CREATE TABLE IF NOT EXISTS messages(
@@ -294,6 +297,12 @@ async function makeDBInner(res, callback)
 
       ALTER TABLE messages
       ADD attach VARCHAR (2048);
+
+      ALTER TABLE users
+      ADD rating INTEGER;
+      
+      ALTER TABLE users
+      ADD avatar VARCHAR;
    `, callback)
 }
 
@@ -403,7 +412,25 @@ async function getMyDialogs(req, res, next)
 {
    var reqBody = req.body;
    console.log(reqBody);
-   await executeBD(res, `SELECT DISTINCT users.username, users.email, users.id, users.type FROM users, messages WHERE messages.userTo=${reqBody.self} AND users.id=messages.userFrom`, async function(res, data)
+   await executeBD(res, `SELECT DISTINCT users.username, users.email, users.id, users.type, users.rating, users.avatar FROM users, messages WHERE messages.userTo=${reqBody.self} AND users.id=messages.userFrom`, async function(res, data)
+   {
+      res.send(data.results);
+   });
+}
+
+/**
+ * Получить мои диалоги
+ * @param {Object} req - объект запрос
+ * @param {Object} res - объект ответ
+ * @param {Object} next - следующий обработчик маршрута
+ */
+async function getTop(req, res, next)
+{
+   var reqBody = req.body;
+   console.log(reqBody);
+   await executeBD(res, `SELECT username, email, id, type, rating, avatar FROM users WHERE type=${USER_TYPE_STREAMER}
+                         ORDER BY rating
+                         FETCH FIRST 40 ROWS ONLY`, async function(res, data)
    {
       res.send(data.results);
    });
@@ -733,6 +760,7 @@ app
    .post('/api/getMessages', getMyMessages)
    .post('/api/getDialogs', getMyDialogs)
    .post('/api/getDialog', getMyDialog)
+   .get('/api/getTop', getTop)
    // Запуск
    .listen(PORT, () => console.log(`Listening on ${ PORT } with db ${ BASE }`))
 
