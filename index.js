@@ -292,12 +292,6 @@ async function makeDBInner(res, callback)
          attach VARCHAR (2048)
       );
 
-      ALTER TABLE messages
-      ADD send_on TIMESTAMP;
-
-      ALTER TABLE messages
-      ADD attach VARCHAR (2048);
-
       ALTER TABLE users
       ADD rating INTEGER;
       
