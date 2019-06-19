@@ -293,7 +293,7 @@ async function makeDBInner(res, callback)
       );
 
       ALTER TABLE users
-      ADD rating INTEGER;
+      ADD rating INTEGER DEFAULT 0;
       
       ALTER TABLE users
       ADD avatar VARCHAR;
